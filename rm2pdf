@@ -1,0 +1,36 @@
+#!/bin/bash
+
+base="/home/slt/remarkable/xochitl/"
+
+if [[ ${#@} != 1 ]]; then
+  echo "usage <notebook-name>"
+  exit 0
+fi
+
+name=$1
+
+file=$(grep -i "\"visibleName\": \"${name}\"" $base/*.metadata | cut -d':' -f1)
+if [[ -z "$file" ]]; then
+  echo "No notebook matching that name"
+  exit -1
+else
+  base="${base}$(basename $file .metadata)"
+  pages=$(jq -r '.pages[]' "${base}.content")
+  out=()
+  for page in $pages; do
+    if [[ -f "${base}/${page}.rm" ]]; then
+      rM2svg --width=1404 -i "${base}/${page}".rm -o "${page}".svg
+      convert "${page}".svg "${page}".pdf
+      rm "${page}".svg
+    else
+      convert xc:none -page 1052.89x1403.85 "${page}".pdf
+    fi
+    out+=("${page}.pdf")
+  done
+  if [[ ${#out} > 0 ]]; then
+    pdftk "${out[@]}" cat output "${name}".pdf
+    rm "${out[@]}"
+  else
+    echo "No pages in notebook!"
+  fi
+fi
